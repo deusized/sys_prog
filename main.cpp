@@ -1,3 +1,5 @@
+//ДОБАВИТЬ СТРАНИЦЫ, КЛЕТКИ ЗАПОЛНЯЮТСЯ ДО КОНЦА СТРАНИЦЫ
+
 #include <iostream>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -39,10 +41,10 @@ string getPermissions(const fs::path& path) {
     struct stat info;
     if (stat(path.c_str(), &info) != 0) return "??????????";
 
-    string prefix = "---";
+    string prefix = "- - - ";
     if (fs::is_symlink(path)) prefix[0] = 'l';
-    if (info.st_mode & S_ISUID) prefix[1] = 'u';
-    if (info.st_mode & S_ISGID) prefix[2] = 'g';
+    if (info.st_mode & S_ISUID) prefix[2] = 'u';
+    if (info.st_mode & S_ISGID) prefix[4] = 'g';
 
     string perms;
     perms += (S_ISDIR(info.st_mode)) ? 'd' : '-';
@@ -85,7 +87,7 @@ int main() {
     SDL_CreateWindowAndRenderer(1920, 1080, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS, &window, &renderer);
 
     string path = "/home/pale/prog";
-    vector<string> columnLabels = {path, "File size", "Creation date", "Access rights"};
+    vector<string> columnLabels = {path, "File size, bytes", "Creation date", "Access rights"};
     vector<vector<string>> tableData;
 
     SDL_Color backgroundColor = {30, 30, 30, 255};
@@ -104,7 +106,7 @@ int main() {
         } else if (fs::is_directory(entry)) {
             size = getDirectorySize(entry.path());
         }
-        row.push_back(to_string(size) + " bytes");
+        row.push_back(to_string(size));
 
 
         auto ftime = fs::last_write_time(entry);
@@ -112,7 +114,7 @@ int main() {
         tm* localTime = localtime(&cftime);
         ostringstream oss;
         oss.imbue(locale("ru_RU.UTF-8"));
-        oss << put_time(localTime, "%H:%M:%S | %A, %d.%m.%Y");
+        oss << put_time(localTime, "%H:%M:%S, %d.%m.%Y");
         row.push_back(oss.str());
 
         row.push_back(getPermissions(entry.path()));
@@ -176,7 +178,7 @@ int main() {
             int textW, textH;
             SDL_QueryTexture(textTexture, nullptr, nullptr, &textW, &textH);
 
-            int x = i * cellWidth + 2;
+            int x = i * cellWidth + 4;
             int y = (cellHeight - textH) / 2 + 5;
 
             SDL_Rect textRect = {x, y, textW, textH};
@@ -190,13 +192,13 @@ int main() {
             for (int col = 0; col < lines && col < tableData[row].size(); ++col) {
                 string cellText = tableData[row][col];
 
-                SDL_Surface* textSurface = TTF_RenderText_Solid(font, cellText.c_str(), textColor);
+                SDL_Surface* textSurface = TTF_RenderUTF8_Blended(font, cellText.c_str(), textColor);
                 SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 
                 int textW, textH;
                 SDL_QueryTexture(textTexture, nullptr, nullptr, &textW, &textH);
 
-                int x = col * cellWidth + 2;
+                int x = col * cellWidth + 4;
                 int y = (row + 1) * cellHeight + (cellHeight - textH) / 2 + 5;
 
                 SDL_Rect textRect = {x, y, textW, textH};
