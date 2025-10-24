@@ -11,7 +11,6 @@
 namespace fs = std::filesystem;
 using namespace std;
 
-// Convert file_time_type to time_t
 time_t to_time_t(const fs::file_time_type& ftime) {
     using namespace std::chrono;
     auto sctp = time_point_cast<system_clock::duration>(
@@ -29,13 +28,13 @@ uintmax_t getDirectorySize(const fs::path& dir) {
             }
         }
     } catch (...) {
-        // Ignore errors (e.g., permission denied)
+        
     }
     return size;
 }
 
 
-// Get UNIX-style file permissions
+
 string getPermissions(const fs::path& path) {
     struct stat info;
     if (stat(path.c_str(), &info) != 0) return "??????????";
@@ -61,6 +60,7 @@ string getPermissions(const fs::path& path) {
 }
 
 int main() {
+    setlocale(LC_ALL, "RU");
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         cerr << "SDL_Init error: " << SDL_GetError() << endl;
         return 1;
@@ -72,7 +72,7 @@ int main() {
         return 1;
     }
 
-    TTF_Font* font = TTF_OpenFont("2.ttf", 28); // Smaller font
+    TTF_Font* font = TTF_OpenFont("1.ttf", 28); // Smaller font
     if (!font) {
         cerr << "Font load error: " << TTF_GetError() << endl;
         TTF_Quit();
@@ -85,7 +85,7 @@ int main() {
     SDL_CreateWindowAndRenderer(1920, 1080, SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS, &window, &renderer);
 
     string path = "/home/pale/prog";
-    vector<string> columnLabels = {"Name", "File size", "Creation date", "Access rights"};
+    vector<string> columnLabels = {path, "File size", "Creation date", "Access rights"};
     vector<vector<string>> tableData;
 
     SDL_Color backgroundColor = {30, 30, 30, 255};
@@ -96,7 +96,7 @@ int main() {
     // Load file data recursively
     for (const auto& entry : fs::recursive_directory_iterator(path)) {
         vector<string> row;
-        row.push_back(entry.path().filename().string()); // Just the name
+        row.push_back(entry.path().filename().string());
 
         uintmax_t size = 0;
         if (fs::is_regular_file(entry)) {
@@ -109,17 +109,19 @@ int main() {
 
         auto ftime = fs::last_write_time(entry);
         time_t cftime = to_time_t(ftime);
-        string dateStr = std::asctime(std::localtime(&cftime));
-        dateStr.pop_back();
-        row.push_back(dateStr);
+        tm* localTime = localtime(&cftime);
+        ostringstream oss;
+        oss.imbue(locale("ru_RU.UTF-8"));
+        oss << put_time(localTime, "%H:%M:%S | %A, %d.%m.%Y");
+        row.push_back(oss.str());
 
-        row.push_back(getPermissions(entry.path())); // UNIX-style rights
+        row.push_back(getPermissions(entry.path()));
 
         tableData.push_back(row);
     }
 
     int lines = 4;
-    int rows = tableData.size() + 1; // +1 for header
+    int rows = tableData.size() + 1;
 
     int inLineThickness = 2;
     int outLineThickness = 4;
@@ -137,7 +139,7 @@ int main() {
         int screenWidth, screenHeight;
         SDL_GetRendererOutputSize(renderer, &screenWidth, &screenHeight);
         int cellWidth = screenWidth / lines;
-        int cellHeight = screenHeight / rows;
+        int cellHeight = TTF_FontHeight(font) + 4;
 
         SDL_SetRenderDrawColor(renderer, backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
         SDL_RenderClear(renderer);
@@ -148,7 +150,7 @@ int main() {
             SDL_Rect vLine = {x, 0, inLineThickness, screenHeight};
             SDL_RenderFillRect(renderer, &vLine);
         }
-        for (int j = 1; j < rows; ++j) {
+        for (int j = 1; j <= rows; ++j) {
             int y = j * cellHeight;
             SDL_Rect hLine = {0, y, screenWidth, inLineThickness};
             SDL_RenderFillRect(renderer, &hLine);
@@ -165,7 +167,6 @@ int main() {
         SDL_RenderFillRect(renderer, &rightBorder);
         SDL_RenderFillRect(renderer, &bottomBorder);
 
-        // Draw column headers
         for (int i = 0; i < lines; ++i) {
             string label = (i < columnLabels.size()) ? columnLabels[i] : "";
 
@@ -175,8 +176,8 @@ int main() {
             int textW, textH;
             SDL_QueryTexture(textTexture, nullptr, nullptr, &textW, &textH);
 
-            int x = i * cellWidth + (cellWidth - textW) / 2;
-            int y = (cellHeight - textH) / 2;
+            int x = i * cellWidth + 2;
+            int y = (cellHeight - textH) / 2 + 5;
 
             SDL_Rect textRect = {x, y, textW, textH};
             SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
@@ -185,7 +186,6 @@ int main() {
             SDL_DestroyTexture(textTexture);
         }
 
-        // Draw file data
         for (int row = 0; row < tableData.size(); ++row) {
             for (int col = 0; col < lines && col < tableData[row].size(); ++col) {
                 string cellText = tableData[row][col];
@@ -196,8 +196,8 @@ int main() {
                 int textW, textH;
                 SDL_QueryTexture(textTexture, nullptr, nullptr, &textW, &textH);
 
-                int x = col * cellWidth + (cellWidth - textW) / 2;
-                int y = (row + 1) * cellHeight + (cellHeight - textH) / 2;
+                int x = col * cellWidth + 2;
+                int y = (row + 1) * cellHeight + (cellHeight - textH) / 2 + 5;
 
                 SDL_Rect textRect = {x, y, textW, textH};
                 SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
